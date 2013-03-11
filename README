@@ -1,0 +1,10 @@
+A simple program to extract (putative) biological sequences from a text.
+
+Usage: sequence-mine positive-matrix negative-matrix file
+
+where "positive-matrix" is a transition probability matrix for
+proteins, and "negative-matrix" is a transition probability matrix for
+the background text.
+
+uniprot_transitions and article_transitions should be decent positive
+and negative matrices.
