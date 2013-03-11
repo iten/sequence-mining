@@ -1,6 +1,8 @@
 #ifndef DNA_SCANNER_H_
 #define DNA_SCANNER_H_
 #include <stddef.h> // for re2.h
+#include <vector>
+#include <string>
 #include "re2/re2.h"
 class DnaScanner {
 public:
@@ -9,7 +11,7 @@ public:
     : possible_regex(regex), min_pure_len(min_pure_len), 
         min_impure_len(min_impure_len), min_output_len(min_output_len),
         min_dna_fraction(min_dna_fraction) {}
-    void Scan(const char *s);
+    void Scan(const char *s, std::vector<std::string> *results);
     static void GetNucleicChars(const std::string &s, std::string *output);
 private:
     re2::RE2 possible_regex;

@@ -1,11 +1,14 @@
 #include <stddef.h>
 #include <stdio.h>
+#include <vector>
+#include <string>
 #include "re2/re2.h"
 #include "dna-scanner.h"
 
 using std::string;
 
 // static
+// 
 void DnaScanner::GetNucleicChars(const string &text, string *output) {
     for(size_t i = 0; i < text.size(); ++i) {
         switch(text[i]) {
@@ -27,7 +30,7 @@ void DnaScanner::GetNucleicChars(const string &text, string *output) {
     }
 }
 
-void DnaScanner::Scan(const char *s) {
+void DnaScanner::Scan(const char *s, std::vector<string> *results) {
     re2::StringPiece text(s);
     string match;
     string current_seq;
@@ -42,12 +45,12 @@ void DnaScanner::Scan(const char *s) {
             current_seq += dna_only;
         } else { 
             if(current_seq.size() > min_output_len) {
-                printf("%s\n", current_seq.c_str());
+                results->push_back(current_seq);
             }
             current_seq = "";
         }
     }
     if(current_seq.size() > min_output_len) {
-        printf("%s\n", current_seq.c_str());
+        results->push_back(current_seq);
     }
 }

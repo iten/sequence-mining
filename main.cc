@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <sys/stat.h>
+#include <string>
+#include <vector>
+#include <utility>
 #include "protein-scanner.h"
 #include "dna-scanner.h"
 
@@ -14,7 +17,7 @@
 #define ARG_MIN_IMPURE_LEN 1006
 #define ARG_MIN_OUTPUT_LEN 1007
 #define ARG_HTML 1008
-
+#define ARG_THRESHOLD 1009
 using std::string;
 
 void usage(char *name) {
@@ -39,7 +42,7 @@ void usage(char *name) {
 
 int main(int argc, char *argv[]) {
     // options
-    const struct option longopts[9] = {
+    const struct option longopts[] = {
         { "prior", 1, NULL, ARG_PRIOR },
         { "min_dna_fraction", 1, NULL, ARG_MIN_DNA_FRACTION },
         { "protein_regex", 1, NULL, ARG_PROTEIN_REGEX },
@@ -48,9 +51,10 @@ int main(int argc, char *argv[]) {
         { "min_impure_len", 1, NULL, ARG_MIN_IMPURE_LEN },
         { "min_output_len", 1, NULL, ARG_MIN_OUTPUT_LEN },
         { "html", 0, NULL, ARG_HTML },
+        { "threshold", 1, NULL, ARG_THRESHOLD },
         { 0, 0, 0, 0 }
     };
-    double prior = 0.01f, min_dna_fraction = 0.7f;
+    double prior = 0.01f, min_dna_fraction = 0.7f, threshold = 0.7f;
     const char *prot_regex = "[^A-Za-z]([ACDEFGHIKLMNPQRSTVWYacdefghiklmnpqrstvwy]{10,})[^A-Za-z]";
     const char *dna_possible_regex = "([^- \n]+)";
     size_t min_pure_len = 3, min_impure_len = 10, min_output_len = 15;
@@ -88,6 +92,9 @@ int main(int argc, char *argv[]) {
         case ARG_MIN_DNA_FRACTION:
             sscanf(optarg, "%lf", &min_dna_fraction);
             break;
+        case ARG_THRESHOLD:
+            sscanf(optarg, "%lf", &threshold);
+            break;
         default:
             usage(argv[0]);
             exit(1);
@@ -99,7 +106,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
     ProteinScanner prot_scanner(prot_regex, argv[optind], argv[optind + 1],
-                                prior);
+                                prior, threshold);
     DnaScanner dna_scanner(dna_possible_regex, min_pure_len, min_impure_len,
                            min_output_len, min_dna_fraction);
     for(int i = optind + 2; argv[i] != NULL; ++i) {
@@ -111,23 +118,36 @@ int main(int argc, char *argv[]) {
         struct stat stat;
         fstat(fileno(f), &stat);
         size_t size = stat.st_size;
-
+        // Input buffer - NB: maps the entire file into memory -- we're working
+        // with small files.
         char *buf = (char *) malloc(size + 1);
-        fread(buf, MAX_FILE_SIZE, 1, f);
-        buf[size] = '\0';
+        if(buf==NULL) {
+            perror("Buffer allocation failed");
+        }
+        size_t bytes_read = fread(buf, 1, size, f);
+        buf[bytes_read] = '\0';
         if(is_html) {
-            // RE2 needs a string pointer rather than char **
+            // GlobalReplace needs a string pointer rather than char **
+            // Slow since this will copy all the data
             string replace = buf;
             RE2::GlobalReplace(&replace, "<.*?>", " ");
-            // this is a little stupid
+            // Copy it back into the buffer -- this is a little stupid
             strncpy(buf, replace.c_str(), size);
-            buf[size] = '\0';
+            buf[size] = '\0'; // Ensure null termination
         }
         printf("======== FILE %s ========\n", argv[i]);
         printf("======== PROTEINS ========\n");
-        prot_scanner.Scan(buf);
+        std::vector< std::pair<string, double> > proteins;
+        prot_scanner.Scan(buf, &proteins);
+        for(int j = 0; j < proteins.size(); ++j) {
+            printf("%s %lf\n", proteins[j].first.data(), proteins[j].second);
+        }
         printf("======== DNA ========\n");
-        dna_scanner.Scan(buf);
+        std::vector<string> dna;
+        dna_scanner.Scan(buf, &dna);
+        for(int j = 0; j < dna.size(); ++j) {
+            printf("%s\n", dna[j].data());
+        }
         free(buf);
         fclose(f);
     }

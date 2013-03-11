@@ -130,7 +130,8 @@ void ProteinMarkovModel::SetPrior(double in) {
 // Note: we can safely assume the string is ASCII and not UTF-8 at this point,
 // since we've already eliminated any other characters.
 double ProteinMarkovModel::GetProbability(string sequence) {
-    double prob_pos = prior;
+    double prob_seq_pos = 1.0;
+    double prob_seq_neg = 1.0;
     // Start iteration from the second character since we look at the previous
     // character to form the transition probability.
     for(size_t i = 1; i < sequence.size(); ++i) {
@@ -143,10 +144,9 @@ double ProteinMarkovModel::GetProbability(string sequence) {
         }
         double prob_transition_pos = transitions_pos[prev_idx][curr_idx];
         double prob_transition_neg = transitions_neg[prev_idx][curr_idx];
-        double prob_transition = prob_transition_pos * prob_pos +
-            prob_transition_neg * (1.0 - prob_pos);
-//      printf("%c|%c: prob_pos: %lf prob_transition_pos: %lf prob_transition_neg: %lf\n", sequence[i - 1], sequence[i], prob_pos, prob_transition_pos, prob_transition_neg);
-        prob_pos = prob_transition_pos * prob_pos / prob_transition;
+        prob_seq_pos *= prob_transition_pos;
+        prob_seq_neg *= prob_transition_neg;
     }
-    return prob_pos;
+    double prob_seq = prob_seq_pos*prior + prob_seq_neg*(1.0-prior);
+    return prob_seq_pos*prior/prob_seq;
 }
